@@ -1,0 +1,229 @@
+bash
+
+cat > /mnt/user-data/outputs/index.html << 'EOF'
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WhatsApp Chat Viewer</title>
+
+  <!-- SVG favicon — green chat bubble -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2300a884'/><path d='M50 18C32.3 18 18 30.9 18 46.8c0 8.2 3.8 15.6 9.9 20.7L25 82l15.7-5.1C43.4 77.6 46.6 78 50 78c17.7 0 32-12.9 32-28.8S67.7 18 50 18z' fill='white'/></svg>"/>
+
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     UPLOAD SCREEN
+═══════════════════════════════════════ -->
+<div id="uploadScreen" class="screen active">
+  <div class="upload-card">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </div>
+      <h1>ChatView<span>r</span></h1>
+      <p>WhatsApp Chat Analyzer &amp; Viewer</p>
+    </div>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".txt" hidden />
+      <div class="drop-icon">📂</div>
+      <p class="drop-title">Drop your WhatsApp export here</p>
+      <p class="drop-sub">or click to browse</p>
+      <p class="drop-hint">Export: WhatsApp Chat → More → Export Chat → Without Media → .txt file</p>
+      <button class="btn-primary" onclick="document.getElementById('fileInput').click()">Choose File</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     IDENTITY SCREEN
+═══════════════════════════════════════ -->
+<div id="identityScreen" class="screen">
+  <div class="identity-card">
+    <h2>Who are you?</h2>
+    <p>Select your name so your messages appear on the right</p>
+    <div id="senderList" class="sender-list"></div>
+    <button class="btn-primary" onclick="loadChat()">Load Chat →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════ -->
+<div id="appScreen" class="screen">
+
+  <!-- Mobile sidebar backdrop -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebarMobile()"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-sm">
+        <span class="logo-icon-sm">💬</span>
+        <span>ChatViewr</span>
+      </div>
+      <button class="btn-icon theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+      <button class="btn-icon" id="toggleSidebar" title="Toggle sidebar">◀</button>
+    </div>
+
+    <div class="sidebar-body">
+
+      <!-- Search -->
+      <div class="sidebar-section">
+        <label class="section-label">Search</label>
+        <div class="search-wrap">
+          <input type="text" id="searchInput" placeholder="Search messages…" oninput="onSearch()" />
+          <span id="searchCount" class="search-count"></span>
+        </div>
+      </div>
+
+      <!-- Jump to Date -->
+      <div class="sidebar-section">
+        <label class="section-label">Jump to Date</label>
+        <button class="btn-outline calendar-btn" onclick="openCalendar()">📅 Open Calendar</button>
+      </div>
+
+      <!-- Filter by sender -->
+      <div class="sidebar-section">
+        <label class="section-label">Filter by Person</label>
+        <select id="filterSender" onchange="onFilter()">
+          <option value="">Everyone</option>
+        </select>
+      </div>
+
+      <!-- Stats -->
+      <div class="sidebar-section">
+        <label class="section-label">Analytics</label>
+        <div id="statsPanel" class="stats-panel"></div>
+      </div>
+
+      <!-- Emoji Reactions -->
+      <div class="sidebar-section">
+        <label class="section-label">Top Emojis</label>
+        <div id="emojiPanel" class="emoji-panel"></div>
+      </div>
+
+      <!-- Word Cloud -->
+      <div class="sidebar-section">
+        <label class="section-label">Word Cloud</label>
+        <div id="wordCloud" class="word-cloud"></div>
+      </div>
+
+      <!-- Activity Heatmap -->
+      <div class="sidebar-section">
+        <label class="section-label">Hourly Activity</label>
+        <div id="heatmapPanel" class="heatmap-panel"></div>
+      </div>
+
+      <!-- Most active days -->
+      <div class="sidebar-section">
+        <label class="section-label">Most Active Days</label>
+        <div id="activeDays" class="active-days"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="sidebar-footer">
+        <button class="btn-outline" onclick="openMediaGallery()">🖼️ Media Gallery</button>
+        <button class="btn-outline" onclick="exportPDF()">📄 Export PDF</button>
+        <button class="btn-outline danger" onclick="resetApp()">↩ New Chat</button>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Floating reopen button -->
+  <button class="sidebar-fab" id="sidebarFab" onclick="toggleSidebar()" title="Open sidebar" style="display:none;">▶</button>
+
+  <!-- Chat Area -->
+  <main class="chat-area">
+    <div class="chat-topbar">
+      <button class="btn-icon" id="toggleSidebarMob" onclick="toggleSidebarMobile()">☰</button>
+      <div class="chat-title">
+        <div class="chat-avatar">💬</div>
+        <div>
+          <div class="chat-name" id="chatName">Chat</div>
+          <div class="chat-info" id="chatInfo"></div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn-icon theme-toggle-mob" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+        <button class="btn-icon" onclick="openCalendar()" title="Calendar">📅</button>
+        <button class="btn-icon" id="mobileSearchToggle" onclick="toggleSearch()" title="Search">🔍</button>
+      </div>
+    </div>
+
+    <!-- Mobile search bar -->
+    <div class="mobile-search" id="mobileSearch">
+      <input type="text" id="mobileSearchInput" placeholder="Search messages…" oninput="onMobileSearch()" />
+      <span id="mobileSearchCount" class="search-count"></span>
+    </div>
+
+    <div class="chat-messages" id="chatMessages"></div>
+
+    <!-- Scroll-to-bottom FAB -->
+    <button class="scroll-bottom-btn" id="scrollBottomBtn" onclick="scrollToBottom()" title="Scroll to bottom" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </button>
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════
+     CALENDAR POPUP
+═══════════════════════════════════════ -->
+<div id="calendarOverlay" class="overlay hidden" onclick="closeCalendar(event)">
+  <div class="calendar-popup" onclick="event.stopPropagation()">
+    <div class="cal-pickers">
+      <div class="cal-picker-col">
+        <button class="cal-picker-arrow" onclick="calPickerNav('month',-1)">▲</button>
+        <div class="cal-picker-drum" id="monthDrum"></div>
+        <button class="cal-picker-arrow" onclick="calPickerNav('month',1)">▼</button>
+      </div>
+      <div class="cal-picker-divider"></div>
+      <div class="cal-picker-col">
+        <button class="cal-picker-arrow" onclick="calPickerNav('year',-1)">▲</button>
+        <div class="cal-picker-drum" id="yearDrum"></div>
+        <button class="cal-picker-arrow" onclick="calPickerNav('year',1)">▼</button>
+      </div>
+      <button class="cal-close-btn btn-icon" onclick="closeCalendar()">✕</button>
+    </div>
+    <div class="cal-weekdays">
+      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span>
+      <span>Th</span><span>Fr</span><span>Sa</span>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-legend">
+      <span class="dot active"></span> Has messages
+      <span class="dot inactive" style="margin-left:12px"></span> No messages
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MEDIA GALLERY MODAL
+═══════════════════════════════════════ -->
+<div id="galleryOverlay" class="overlay hidden" onclick="closeMediaGallery(event)">
+  <div class="gallery-popup" onclick="event.stopPropagation()">
+    <div class="gallery-header">
+      <h3>🖼️ Media Gallery</h3>
+      <button class="btn-icon" onclick="closeMediaGallery()">✕</button>
+    </div>
+    <div class="gallery-grid" id="galleryGrid"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     PRINT LAYOUT (hidden, PDF only)
+═══════════════════════════════════════ -->
+<div id="printArea" class="print-area"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
